@@ -53,7 +53,7 @@ exports.handler = async function(event) {
       return { statusCode: 500, body: JSON.stringify({ error: 'Auth failed', detail: tokenData }) };
     }
     const data = await httpsGet(
-      `https://creator.zoho.eu/api/v2/calikebab/cali-kebab/report/Courier_Location_Report?criteria=Order_ID==${orderId}`,
+      `https://creator.zoho.eu/api/v2/calikebab/calikebab/report/Courier_Location_Report?criteria=Order_ID==${orderId}`,
       tokenData.access_token
     );
     return {
