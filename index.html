@@ -1,0 +1,93 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>CaliKebab - Track Your Driver</title>
+<style>
+* { margin:0; padding:0; box-sizing:border-box; }
+body { font-family:-apple-system,sans-serif; background:#f8f9fa; }
+#header { background:#e63946; color:white; padding:16px 20px; text-align:center; }
+#header h1 { font-size:20px; font-weight:700; }
+#header p { font-size:13px; opacity:0.9; margin-top:3px; }
+#status-card { margin:16px; background:white; border-radius:16px; padding:16px 20px; box-shadow:0 2px 12px rgba(0,0,0,0.08); display:flex; align-items:center; gap:12px; }
+#status-icon { font-size:28px; }
+#status-title { font-size:15px; font-weight:600; color:#1a1a2e; }
+#status-sub { font-size:12px; color:#666; margin-top:2px; }
+#updated-time { font-size:11px; color:#999; margin-top:4px; }
+#map { margin:0 16px; height:calc(100vh - 200px); border-radius:16px; overflow:hidden; box-shadow:0 2px 12px rgba(0,0,0,0.1); background:#e8e8e8; display:flex; align-items:center; justify-content:center; }
+#error-msg { margin:16px; background:#fff3f3; border:1px solid #ffcccc; border-radius:12px; padding:12px 16px; color:#cc0000; font-size:13px; display:none; }
+</style>
+</head>
+<body>
+<div id="header">
+  <h1>🌯 CaliKebab Delivery</h1>
+  <p>Your driver is on the way!</p>
+</div>
+<div id="status-card">
+  <div id="status-icon">🚗</div>
+  <div id="status-info">
+    <div id="status-title">Connecting to driver...</div>
+    <div id="status-sub">Please wait</div>
+    <div id="updated-time"></div>
+  </div>
+</div>
+<div id="error-msg"></div>
+<div id="map"><p style="color:#999">Loading map...</p></div>
+<script>
+const MAPS_KEY = "AIzaSyDmgfeMs1pDIjVVm0E1EW7JMFbVuQ91Fr8";
+let map = null, marker = null;
+const params = new URLSearchParams(window.location.search);
+const orderId = params.get('order_id') || params.get('order') || null;
+
+async function getLocation() {
+  if(!orderId) { showError("Order ID not found in URL"); return null; }
+  const resp = await fetch(`/.netlify/functions/zoho-proxy?order_id=${orderId}`);
+  const data = await resp.json();
+  if(data.data && data.data.length > 0) {
+    const rec = data.data[0];
+    return { lat: parseFloat(rec.Lat), lng: parseFloat(rec.Lng), updatedAt: rec.Updated_At };
+  }
+  return null;
+}
+
+function initMap(lat, lng) {
+  document.getElementById('map').innerHTML = '';
+  map = new google.maps.Map(document.getElementById('map'), { center:{lat,lng}, zoom:15 });
+  marker = new google.maps.Marker({ position:{lat,lng}, map, title:"Your Driver" });
+}
+
+function updateUI(lat, lng, updatedAt) {
+  document.getElementById('status-title').textContent = "Driver is on the way! 🚗";
+  document.getElementById('status-sub').textContent = "Live location";
+  if(updatedAt) document.getElementById('updated-time').textContent = "Updated: " + updatedAt;
+  if(!map) { initMap(lat, lng); } else { marker.setPosition({lat,lng}); map.panTo({lat,lng}); }
+}
+
+function showError(msg) {
+  const el = document.getElementById('error-msg');
+  el.style.display = 'block';
+  el.textContent = msg;
+  document.getElementById('status-title').textContent = "Unable to load location";
+  document.getElementById('status-sub').textContent = "Please refresh the page";
+}
+
+async function refresh() {
+  const loc = await getLocation();
+  if(loc) { updateUI(loc.lat, loc.lng, loc.updatedAt); }
+  else if(orderId) {
+    document.getElementById('status-title').textContent = "Driver location not available yet";
+    document.getElementById('status-sub').textContent = "Will update automatically";
+  }
+}
+
+function loadMaps() {
+  const script = document.createElement('script');
+  script.src = `https://maps.googleapis.com/maps/api/js?key=${MAPS_KEY}`;
+  script.onload = () => { refresh(); setInterval(refresh, 15000); };
+  document.head.appendChild(script);
+}
+loadMaps();
+</script>
+</body>
+</html>
